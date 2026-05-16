@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [assignError, setAssignError] = useState("");
   const [assignSuccess, setAssignSuccess] = useState("");
   const [assignSubmitting, setAssignSubmitting] = useState(false);
+  const [memberSearch, setMemberSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +70,20 @@ export default function Dashboard() {
     };
   }, [isAdmin]);
 
+  const assignMembers = (() => {
+    if (!assignProjectId) return [];
+    const p = projects.find((x) => (x._id || x.id) === assignProjectId);
+    const members = p?.members || [];
+    if (!memberSearch.trim()) return members;
+    return members.filter((m) => {
+      const u = m.user || {};
+      const name = (u.name || "").toLowerCase();
+      const email = (u.email || "").toLowerCase();
+      const s = memberSearch.toLowerCase();
+      return name.includes(s) || email.includes(s);
+    });
+  })();
+
   useEffect(() => {
     if (!assignProjectId) {
       setAssignForm((f) => ({ ...f, assignedTo: "" }));
@@ -80,10 +95,13 @@ export default function Dashboard() {
       setAssignForm((f) => ({ ...f, assignedTo: "" }));
       return;
     }
-    const first = members[0]?.user?._id || members[0]?.user?.id || "";
+    const first = members[0]?.user?._id || members[0]?.user?.id || (typeof members[0] === "string" ? members[0] : "");
     setAssignForm((f) => {
-      const stillValid = members.some((m) => (m.user?._id || m.user?.id) === f.assignedTo);
-      return { ...f, assignedTo: stillValid ? f.assignedTo : first };
+      const stillValid = members.some((m) => {
+        const uid = m.user?._id || m.user?.id || (typeof m === "string" ? m : "");
+        return uid === f.assignedTo;
+      });
+      return { ...f, assignedTo: stillValid ? f.assignedTo : (first || f.assignedTo) };
     });
   }, [assignProjectId, projects]);
 
@@ -284,19 +302,29 @@ export default function Dashboard() {
                     />
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
+                    <div className="space-y-2">
                       <label className="block text-sm font-medium text-slate-700">Assign to *</label>
+                      <input
+                        type="text"
+                        placeholder="Search team members..."
+                        value={memberSearch}
+                        onChange={(e) => setMemberSearch(e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-1 text-xs"
+                      />
                       <select
                         required
                         value={assignForm.assignedTo}
                         onChange={(e) => setAssignForm((f) => ({ ...f, assignedTo: e.target.value }))}
                         className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                       >
+                        <option value="">-- Select member --</option>
                         {assignMembers.map((m) => {
                           const u = m.user || {};
+                          const uid = u._id || u.id || (typeof m === "string" ? m : "");
+                          if (!uid) return null;
                           return (
-                            <option key={u._id || u.id} value={u._id || u.id}>
-                              {u.name} ({u.email})
+                            <option key={uid} value={uid}>
+                              {u.name || "Unknown"} ({u.email || "No email"}) — {m.projectRole || "Tasker"}
                             </option>
                           );
                         })}
