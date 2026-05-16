@@ -10,7 +10,7 @@ export async function dashboardTaskers(req, res, next) {
 
     const projects = await Project.find({ createdBy: req.user._id })
       .select("projectName members")
-      .populate("members", "name email role");
+      .populate("members.user", "name email role");
 
     const projectIds = projects.map((p) => p._id);
     const projectMeta = new Map(
@@ -56,7 +56,8 @@ export async function dashboardTaskers(req, res, next) {
 
     for (const p of projects) {
       for (const m of p.members || []) {
-        const uid = m._id.toString();
+        if (!m.user) continue;
+        const uid = m.user._id ? m.user._id.toString() : m.user.toString();
         if (byUser.has(uid)) {
           const row = byUser.get(uid);
           row.currentProjects.push({
