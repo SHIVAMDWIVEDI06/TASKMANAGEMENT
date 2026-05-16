@@ -160,9 +160,6 @@ export default function Dashboard() {
     }
   }
 
-  const selectedProject = projects.find((p) => (p._id || p.id) === assignProjectId);
-  const assignMembers = selectedProject?.members || [];
-
   const s = summary || {};
   const maxBar = Math.max(s.totalTasks || 0, 1);
 
