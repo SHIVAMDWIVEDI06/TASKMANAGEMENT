@@ -1,7 +1,7 @@
 import axios from "axios";
 
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-console.log("System Ready - Version 1.0.3");
+const baseURL = import.meta.env.VITE_API_URL || "https://yamanote.proxy.rlwy.net:46374";
+console.log("System Ready - Version 1.0.4 - Force Connected");
 console.log("Using API Base URL:", baseURL);
 
 export const api = axios.create({

@@ -18,7 +18,19 @@ const __dirname = path.dirname(__filename);
 
 app.use(
   cors({
-    origin: true, // Temporarily allow all origins for debugging
+    origin: (origin, callback) => {
+      // Allow the specific frontend and common dev environments
+      const allowed = [
+        "https://taskmanagement-production-40b0.up.railway.app",
+        "http://localhost:5173",
+        "http://localhost:3000",
+      ];
+      if (!origin || allowed.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
