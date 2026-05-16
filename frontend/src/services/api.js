@@ -1,8 +1,6 @@
 import axios from "axios";
 
-const baseURL = import.meta.env.VITE_API_URL || "https://yamanote.proxy.rlwy.net:46374";
-console.log("System Ready - Version 1.0.4 - Force Connected");
-console.log("Using API Base URL:", baseURL);
+const baseURL = import.meta.env.VITE_API_URL || "";
 
 export const api = axios.create({
   baseURL,
