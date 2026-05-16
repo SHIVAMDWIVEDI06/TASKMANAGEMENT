@@ -22,9 +22,22 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setSubmitting(true);
+    // Basic client‑side validation
+    if (!email) {
+      setError("Email is required");
+      setSubmitting(false);
+      return;
+    }
+    if (!password) {
+      setError("Password is required");
+      setSubmitting(false);
+      return;
+    }
     try {
-      await login(email.trim(), password);
-      navigate(from, { replace: true });
+      // Normalise email before sending to backend
+      const normalizedEmail = email.trim().toLowerCase();
+      await login(normalizedEmail, password);
+      // Navigation is handled by the useEffect watching `user`
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
     } finally {

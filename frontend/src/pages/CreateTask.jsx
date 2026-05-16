@@ -112,11 +112,15 @@ export default function CreateTask() {
             onChange={(e) => setAssignedTo(e.target.value)}
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
           >
-            {(project?.members || []).map((m) => (
-              <option key={m._id || m.id} value={m._id || m.id}>
-                {m.name} ({m.email})
+          {(project?.members || []).map((m) => {
+            const u = m.user || {};
+            const uid = u._id || u.id;
+            return (
+              <option key={uid} value={uid}>
+                {u.name || "Unknown"} ({u.email || "No email"})
               </option>
-            ))}
+            );
+          })}
           </select>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">

@@ -32,7 +32,7 @@ export default function Signup() {
       if (name.trim()) payload.name = name.trim();
       if (wantAdmin) payload.role = "admin";
       await signup(payload);
-      navigate("/dashboard", { replace: true });
+      // Navigation is handled by the useEffect watching `user`
     } catch (err) {
       setError(err.response?.data?.message || "Signup failed");
     } finally {

@@ -27,7 +27,22 @@ export default function Taskers() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!cancelled) loadData();
+    (async () => {
+      try {
+        const [tRes, pRes] = await Promise.all([
+          api.get("/api/dashboard/taskers"),
+          api.get("/api/projects"),
+        ]);
+        if (!cancelled) {
+          setTaskers(tRes.data.taskers || []);
+          setProjects(pRes.data.projects || []);
+        }
+      } catch (e) {
+        if (!cancelled) setError(e.response?.data?.message || "Failed to load taskers");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
     };

@@ -26,7 +26,8 @@ export function AuthProvider({ children }) {
       try {
         const { data } = await api.get("/api/auth/me");
         if (!cancelled) setUser(data.user);
-      } catch {
+      } catch (err) {
+        console.warn("[Auth] Token validation failed:", err.response?.data?.message || err.message);
         if (!cancelled) {
           applyToken(null);
           setUser(null);

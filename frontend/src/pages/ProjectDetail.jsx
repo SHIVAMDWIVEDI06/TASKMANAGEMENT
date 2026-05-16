@@ -72,6 +72,16 @@ export default function ProjectDetail() {
     }
   }
 
+  async function deleteProject() {
+    if (!isAdmin) return;
+    try {
+      await api.delete(`/api/projects/${id}`);
+      navigate("/dashboard");
+    } catch (e) {
+      setError(e.response?.data?.message || "Delete failed");
+    }
+  }
+
   if (error && !project) {
     return <p className="text-red-600 p-8">{error}</p>;
   }

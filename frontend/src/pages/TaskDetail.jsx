@@ -185,11 +185,15 @@ export default function TaskDetail() {
               onChange={(e) => setForm((f) => ({ ...f, assignedTo: e.target.value }))}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
             >
-              {projectMembers.map((m) => (
-                <option key={m._id || m.id} value={m._id || m.id}>
-                  {m.name}
-                </option>
-              ))}
+              {projectMembers.map((m) => {
+                const u = m.user || {};
+                const uid = u._id || u.id;
+                return (
+                  <option key={uid} value={uid}>
+                    {u.name || "Unknown"}
+                  </option>
+                );
+              })}
             </select>
           </div>
           <div className="flex flex-wrap gap-2">
