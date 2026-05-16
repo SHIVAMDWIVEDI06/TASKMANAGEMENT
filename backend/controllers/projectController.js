@@ -7,7 +7,10 @@ async function projectVisibleToUser(projectId, user) {
   const p = await Project.findById(projectId);
   if (!p) return null;
   if (user.role === "admin" && p.createdBy.toString() === user._id.toString()) return p;
-  if (user.role === "member" && p.members.some((m) => m.user.toString() === user._id.toString())) {
+  if (user.role === "member" && p.members.some((m) => {
+    const uid = m.user ? m.user.toString() : m.toString();
+    return uid === user._id.toString();
+  })) {
     return p;
   }
   return null;
@@ -166,13 +169,26 @@ export async function manageMembers(req, res, next) {
     }
     const oid = new mongoose.Types.ObjectId(targetId);
     if (action === "add") {
-      if (!project.members.some((m) => m.user.toString() === oid.toString())) {
+      const already = project.members.some((m) => {
+        const mid = m.user ? m.user.toString() : m.toString();
+        return mid === oid.toString();
+      });
+      if (!already) {
         project.members.push({ user: oid, projectRole: projectRole || "Tasker" });
       }
     } else if (action === "updateRole") {
-      const member = project.members.find((m) => m.user.toString() === oid.toString());
+      const member = project.members.find((m) => {
+        const mid = m.user ? m.user.toString() : m.toString();
+        return mid === oid.toString();
+      });
       if (member) {
-        member.projectRole = projectRole || "Tasker";
+        if (typeof member === "object" && member.user) {
+          member.projectRole = projectRole || "Tasker";
+        } else {
+          // Migration: if it was old ID format, we can't update role easily, 
+          // but we can replace it. Actually, updateRole implies new schema.
+          return res.status(400).json({ message: "Cannot update role on old member format. Please remove and re-add." });
+        }
       } else {
         return res.status(404).json({ message: "User is not a member of this project" });
       }
@@ -180,7 +196,10 @@ export async function manageMembers(req, res, next) {
       if (oid.toString() === project.createdBy.toString()) {
         return res.status(400).json({ message: "Cannot remove project creator from members" });
       }
-      project.members = project.members.filter((m) => m.user.toString() !== oid.toString());
+      project.members = project.members.filter((m) => {
+        const mid = m.user ? m.user.toString() : m.toString();
+        return mid !== oid.toString();
+      });
     }
     await project.save();
     await project.populate("createdBy members.user", "name email role");
