@@ -49,6 +49,17 @@ export default function Taskers() {
     }
   }
 
+  async function handleRoleChange(userId, newRole) {
+    if (!window.confirm(`Are you sure you want to change this user's role to ${newRole}?`)) return;
+    setError("");
+    try {
+      await api.put(`/api/dashboard/users/${userId}/role`, { role: newRole });
+      await loadData();
+    } catch (e) {
+      setError(e.response?.data?.message || "Failed to update role");
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -153,6 +164,22 @@ export default function Taskers() {
                     >
                       Assign
                     </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    System Role
+                  </label>
+                  <div className="mt-1 flex gap-2">
+                    <select
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
+                      value={row.user.role}
+                      onChange={(e) => handleRoleChange(row.user.id, e.target.value)}
+                    >
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                    </select>
                   </div>
                 </div>
 

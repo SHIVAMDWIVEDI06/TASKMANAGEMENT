@@ -18,7 +18,7 @@ export async function signup(req, res, next) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
       return res.status(400).json({ message: "Invalid email format" });
     }
-    let finalRole = role === "admin" ? "admin" : "member";
+    let finalRole = "member";
     const hashed = await bcrypt.hash(password, 10);
     const emailStr = String(email).trim().toLowerCase();
     const userName = name ? name.trim() : emailStr.split("@")[0];

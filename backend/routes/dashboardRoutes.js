@@ -8,5 +8,6 @@ const router = Router();
 router.use(requireAuth);
 router.get("/summary", dashboard.dashboardSummary);
 router.get("/taskers", requireAdmin, dashboard.dashboardTaskers);
+router.put("/users/:userId/role", requireAdmin, dashboard.updateUserRole);
 
 export default router;

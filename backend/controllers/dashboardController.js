@@ -162,3 +162,30 @@ export async function dashboardSummary(req, res, next) {
     next(err);
   }
 }
+
+export async function updateUserRole(req, res, next) {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body;
+
+    if (role !== "admin" && role !== "member") {
+      return res.status(400).json({ message: "Invalid role. Must be 'admin' or 'member'." });
+    }
+
+    if (userId === req.user._id.toString()) {
+      return res.status(400).json({ message: "Cannot change your own role." });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    user.role = role;
+    await user.save();
+
+    res.json({ message: `User role updated to ${role}.`, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+  } catch (err) {
+    next(err);
+  }
+}
