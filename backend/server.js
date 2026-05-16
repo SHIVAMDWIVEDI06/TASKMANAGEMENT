@@ -34,14 +34,15 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
-// Serve static files from the React frontend app (Optional fallback)
+// Serve static files from the React frontend app
 const distPath = path.join(__dirname, "../frontend/dist");
-if (process.env.SERVE_STATIC === "true") {
-  app.use(express.static(distPath));
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(distPath, "index.html"));
-  });
-}
+app.use(express.static(distPath));
+
+// The "catchall" handler: for any request that doesn't
+// match one above, send back React's index.html file.
+app.get("*", (req, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
+});
 
 app.use((err, _req, res, _next) => {
   console.error(err);
