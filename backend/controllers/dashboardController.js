@@ -123,7 +123,7 @@ export async function dashboardSummary(req, res, next) {
       taskFilter = { assignedTo: req.user._id };
     }
 
-    const [total, completed, pending, inProgress, overdueAgg, overdueTasks] = await Promise.all([
+    const [total, completed, pending, inProgress, overdueAgg, overdueTasks, totalProjects, completedProjects] = await Promise.all([
       Task.countDocuments(taskFilter),
       Task.countDocuments({ ...taskFilter, status: "Completed" }),
       Task.countDocuments({ ...taskFilter, status: "Pending" }),
@@ -142,6 +142,8 @@ export async function dashboardSummary(req, res, next) {
         .limit(20)
         .populate("projectId", "projectName")
         .populate("assignedTo", "name email"),
+      Project.countDocuments(req.user.role === "admin" ? { createdBy: req.user._id } : { "members.user": req.user._id }),
+      Project.countDocuments(req.user.role === "admin" ? { createdBy: req.user._id, status: "Completed" } : { "members.user": req.user._id, status: "Completed" }),
     ]);
 
     res.json({
@@ -152,6 +154,8 @@ export async function dashboardSummary(req, res, next) {
         inProgressTasks: inProgress,
         overdueTasks: overdueAgg,
         overdueTaskList: overdueTasks,
+        totalProjects,
+        completedProjects,
       },
     });
   } catch (err) {

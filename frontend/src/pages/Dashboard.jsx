@@ -182,12 +182,11 @@ export default function Dashboard() {
 
       {summary && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <StatCard label="Total tasks" value={s.totalTasks} tone="slate" />
-            <StatCard label="Completed" value={s.completedTasks} tone="green" />
-            <StatCard label="Pending" value={s.pendingTasks} tone="amber" />
-            <StatCard label="In progress" value={s.inProgressTasks} tone="indigo" />
-            <StatCard label="Overdue" value={s.overdueTasks} tone="red" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="Total projects" value={s.totalProjects} tone="slate" />
+            <StatCard label="Completed projects" value={s.completedProjects} tone="green" />
+            <StatCard label="Total tasks" value={s.totalTasks} tone="indigo" />
+            <StatCard label="Pending tasks" value={s.pendingTasks} tone="amber" />
           </div>
           {s.overdueTaskList?.length > 0 && (
             <div className="rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm">
