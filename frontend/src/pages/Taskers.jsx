@@ -135,10 +135,11 @@ export default function Taskers() {
                     >
                       <option value="" disabled>Select project...</option>
                       {projects.map(p => {
-                        const isAlreadyMember = row.currentProjects.some(cp => cp.id === p._id);
+                        const pid = (p._id || p.id || p).toString();
+                        const isAlreadyMember = row.currentProjects.some(cp => (cp.id || cp._id || cp).toString() === pid);
                         if (isAlreadyMember) return null;
                         return (
-                          <option key={p._id} value={p._id}>{p.projectName}</option>
+                          <option key={pid} value={pid}>{p.projectName}</option>
                         );
                       })}
                     </select>
