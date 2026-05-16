@@ -41,6 +41,12 @@ export default function Dashboard() {
   const [assignSubmitting, setAssignSubmitting] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
 
+  const [allUsers, setAllUsers] = useState([]);
+  const [teamForm, setTeamForm] = useState({ projectId: "", userId: "", role: "Tasker" });
+  const [teamError, setTeamError] = useState("");
+  const [teamSuccess, setTeamSuccess] = useState("");
+  const [teamSubmitting, setTeamSubmitting] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -57,6 +63,9 @@ export default function Dashboard() {
         }
         if (results[1].status === "fulfilled") {
           setProjects(results[1].value.data.projects || []);
+        }
+        if (results[2] && results[2].status === "fulfilled") {
+          setAllUsers(results[2].value.data.taskers || []);
         }
         if (results.every((r) => r.status === "rejected")) {
           setError("Failed to load dashboard data");
@@ -146,6 +155,33 @@ export default function Dashboard() {
       setAssignError(err.response?.data?.message || "Could not create task");
     } finally {
       setAssignSubmitting(false);
+    }
+  }
+
+  async function handleTeamSubmit(e) {
+    e.preventDefault();
+    setTeamError("");
+    setTeamSuccess("");
+    if (!teamForm.projectId || !teamForm.userId) {
+      setTeamError("Please select both a project and a member.");
+      return;
+    }
+    setTeamSubmitting(true);
+    try {
+      const { data } = await api.post(`/api/projects/${teamForm.projectId}/members`, {
+        userId: teamForm.userId,
+        action: "add",
+        projectRole: teamForm.role,
+      });
+      setTeamSuccess("Member added successfully!");
+      setTeamForm({ ...teamForm, userId: "" });
+      // Refresh projects to reflect new member lists
+      const pRes = await api.get("/api/projects");
+      setProjects(pRes.data.projects || []);
+    } catch (err) {
+      setTeamError(err.response?.data?.message || "Failed to add member.");
+    } finally {
+      setTeamSubmitting(false);
     }
   }
 
@@ -381,6 +417,74 @@ export default function Dashboard() {
                 </form>
               )}
             </div>
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Add member to project</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Select a project and a user to add them to the team with a specific role.
+            </p>
+            <form onSubmit={handleTeamSubmit} className="mt-4 space-y-4 max-w-xl">
+              {teamError && (
+                <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{teamError}</div>
+              )}
+              {teamSuccess && (
+                <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{teamSuccess}</div>
+              )}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Project</label>
+                  <select
+                    required
+                    value={teamForm.projectId}
+                    onChange={(e) => setTeamForm({ ...teamForm, projectId: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="">Select project...</option>
+                    {projects.map((p) => (
+                      <option key={p._id || p.id} value={p._id || p.id}>
+                        {p.projectName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Member</label>
+                  <select
+                    required
+                    value={teamForm.userId}
+                    onChange={(e) => setTeamForm({ ...teamForm, userId: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="">Select member...</option>
+                    {allUsers.map((t) => (
+                      <option key={t.user.id} value={t.user.id}>
+                        {t.user.name} ({t.user.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Project Role</label>
+                <select
+                  value={teamForm.role}
+                  onChange={(e) => setTeamForm({ ...teamForm, role: e.target.value })}
+                  className="mt-1 w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="Tasker">Tasker</option>
+                  <option value="PL">PL</option>
+                  <option value="QR">QR</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={teamSubmitting}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {teamSubmitting ? "Adding..." : "Add to Team"}
+              </button>
+            </form>
           </section>
 
         </>
