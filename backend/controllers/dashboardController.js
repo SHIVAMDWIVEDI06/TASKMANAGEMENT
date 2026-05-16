@@ -189,3 +189,36 @@ export async function updateUserRole(req, res, next) {
     next(err);
   }
 }
+
+export async function deleteUser(req, res, next) {
+  try {
+    const { userId } = req.params;
+
+    if (userId === req.user._id.toString()) {
+      return res.status(400).json({ message: "Cannot delete your own account." });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Cascading: Remove from all project memberships
+    await Project.updateMany(
+      { "members.user": userId },
+      { $pull: { members: { user: userId } } }
+    );
+
+    // Cascading: Unassign from all tasks
+    await Task.updateMany(
+      { assignedTo: userId },
+      { $set: { assignedTo: null } }
+    );
+
+    await User.findByIdAndDelete(userId);
+
+    res.json({ message: "User and their assignments have been removed from the system." });
+  } catch (err) {
+    next(err);
+  }
+}

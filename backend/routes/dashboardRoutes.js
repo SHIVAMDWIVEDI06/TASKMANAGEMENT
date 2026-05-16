@@ -9,5 +9,6 @@ router.use(requireAuth);
 router.get("/summary", dashboard.dashboardSummary);
 router.get("/taskers", requireAdmin, dashboard.dashboardTaskers);
 router.put("/users/:userId/role", requireAdmin, dashboard.updateUserRole);
+router.delete("/users/:userId", requireAdmin, dashboard.deleteUser);
 
 export default router;

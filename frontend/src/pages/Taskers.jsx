@@ -60,6 +60,17 @@ export default function Taskers() {
     }
   }
 
+  async function handleDeleteUser(userId, userName) {
+    if (!window.confirm(`CRITICAL ACTION: Are you sure you want to REMOVE "${userName}" from the entire system? This will unassign them from all tasks and projects.`)) return;
+    setError("");
+    try {
+      await api.delete(`/api/dashboard/users/${userId}`);
+      await loadData();
+    } catch (e) {
+      setError(e.response?.data?.message || "Failed to delete user");
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -70,11 +81,13 @@ export default function Taskers() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Current taskers</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          All users in the system, and their assignments across your portfolio.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Current taskers</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            All users in the system, and their assignments across your portfolio.
+          </p>
+        </div>
       </div>
 
       {error && (
@@ -92,15 +105,19 @@ export default function Taskers() {
           {taskers.map((row) => (
             <li
               key={row.user.id}
-              className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+              className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm relative overflow-hidden"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-slate-900">{row.user.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-slate-900">{row.user.name}</p>
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                      row.user.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {row.user.role}
+                    </span>
+                  </div>
                   <p className="text-sm text-slate-600">{row.user.email}</p>
-                  <span className="mt-1 inline-block rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
-                    {row.user.role}
-                  </span>
                 </div>
                 <div className="flex flex-wrap gap-3 text-sm">
                   <span className="rounded-md bg-emerald-100 px-2 py-1 font-medium text-emerald-900">
@@ -114,7 +131,8 @@ export default function Taskers() {
                   </span>
                 </div>
               </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              
+              <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100 pt-6">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Current projects
@@ -167,20 +185,29 @@ export default function Taskers() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    System Role
-                  </label>
-                  <div className="mt-1 flex gap-2">
-                    <select
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
-                      value={row.user.role}
-                      onChange={(e) => handleRoleChange(row.user.id, e.target.value)}
-                    >
-                      <option value="member">Member</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      System Role
+                    </label>
+                    <div className="mt-1">
+                      <select
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
+                        value={row.user.role}
+                        onChange={(e) => handleRoleChange(row.user.id, e.target.value)}
+                      >
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
                   </div>
+                  
+                  <button
+                    onClick={() => handleDeleteUser(row.user.id, row.user.name)}
+                    className="w-full rounded-lg border border-red-200 bg-red-50 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors"
+                  >
+                    Remove from System
+                  </button>
                 </div>
 
               </div>
