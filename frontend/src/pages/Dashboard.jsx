@@ -80,9 +80,9 @@ export default function Dashboard() {
       setAssignForm((f) => ({ ...f, assignedTo: "" }));
       return;
     }
-    const first = members[0]._id || members[0].id;
+    const first = members[0]?.user?._id || members[0]?.user?.id || "";
     setAssignForm((f) => {
-      const stillValid = members.some((m) => (m._id || m.id) === f.assignedTo);
+      const stillValid = members.some((m) => (m.user?._id || m.user?.id) === f.assignedTo);
       return { ...f, assignedTo: stillValid ? f.assignedTo : first };
     });
   }, [assignProjectId, projects]);
@@ -292,11 +292,14 @@ export default function Dashboard() {
                         onChange={(e) => setAssignForm((f) => ({ ...f, assignedTo: e.target.value }))}
                         className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                       >
-                        {assignMembers.map((m) => (
-                          <option key={m._id || m.id} value={m._id || m.id}>
-                            {m.name} ({m.email})
-                          </option>
-                        ))}
+                        {assignMembers.map((m) => {
+                          const u = m.user || {};
+                          return (
+                            <option key={u._id || u.id} value={u._id || u.id}>
+                              {u.name} ({u.email})
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                     <div>

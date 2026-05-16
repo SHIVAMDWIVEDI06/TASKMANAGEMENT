@@ -33,7 +33,7 @@ export async function createTask(req, res, next) {
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
-    const assigneeInProject = project.members.some((m) => m.toString() === String(assignedTo));
+    const assigneeInProject = project.members.some((m) => m.user.toString() === String(assignedTo));
     if (!assigneeInProject) {
       return res.status(400).json({ message: "Assignee must be a project member" });
     }
@@ -104,7 +104,7 @@ export async function getTask(req, res, next) {
         path: "projectId",
         select: "projectName members createdBy",
         populate: {
-          path: "members",
+          path: "members.user",
           select: "name email",
         },
       })
@@ -171,7 +171,7 @@ export async function updateTask(req, res, next) {
         if (!mongoose.isValidObjectId(assignedTo)) {
           return res.status(400).json({ message: "Invalid assignee" });
         }
-        const inProject = project.members.some((m) => m.toString() === String(assignedTo));
+        const inProject = project.members.some((m) => m.user.toString() === String(assignedTo));
         if (!inProject) {
           return res.status(400).json({ message: "Assignee must be a project member" });
         }
@@ -182,7 +182,7 @@ export async function updateTask(req, res, next) {
         path: "projectId",
         select: "projectName members createdBy",
         populate: {
-          path: "members",
+          path: "members.user",
           select: "name email",
         },
       });
@@ -210,7 +210,7 @@ export async function updateTask(req, res, next) {
         path: "projectId",
         select: "projectName members createdBy",
         populate: {
-          path: "members",
+          path: "members.user",
           select: "name email",
         },
       });
