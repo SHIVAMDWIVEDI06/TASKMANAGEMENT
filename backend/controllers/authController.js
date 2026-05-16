@@ -18,7 +18,7 @@ export async function signup(req, res, next) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
       return res.status(400).json({ message: "Invalid email format" });
     }
-    let finalRole = "member";
+    let finalRole = role === "admin" ? "admin" : "member";
     const hashed = await bcrypt.hash(password, 10);
     const emailStr = String(email).trim().toLowerCase();
     const userName = name ? name.trim() : emailStr.split("@")[0];
@@ -29,6 +29,9 @@ export async function signup(req, res, next) {
       role: finalRole,
     });
     const token = signToken(user._id);
+    const baseURL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+console.log("System Ready - Version 1.0.2");
+console.log("Using API Base URL:", baseURL);
     const safe = user.toJSON();
     res.status(201).json({ user: safe, token });
   } catch (err) {
