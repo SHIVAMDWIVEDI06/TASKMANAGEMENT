@@ -7,7 +7,7 @@ async function projectVisibleToUser(projectId, user) {
   const p = await Project.findById(projectId);
   if (!p) return null;
   if (user.role === "admin" && p.createdBy.toString() === user._id.toString()) return p;
-  if (user.role === "member" && p.members.some((m) => m.toString() === user._id.toString())) {
+  if (user.role === "member" && p.members.some((m) => m.user.toString() === user._id.toString())) {
     return p;
   }
   return null;
@@ -24,9 +24,9 @@ export async function createProject(req, res, next) {
       description: description != null ? String(description) : "",
       documentUrl: documentUrl != null ? String(documentUrl).trim() : "",
       createdBy: req.user._id,
-      members: [req.user._id],
+      members: [{ user: req.user._id, projectRole: "PL" }],
     });
-    await project.populate("createdBy members", "name email role");
+    await project.populate("createdBy members.user", "name email role");
     res.status(201).json({ project });
   } catch (err) {
     next(err);
@@ -39,11 +39,11 @@ export async function listProjects(req, res, next) {
     if (req.user.role === "admin") {
       query = { createdBy: req.user._id };
     } else {
-      query = { members: req.user._id };
+      query = { "members.user": req.user._id };
     }
     const projects = await Project.find(query)
       .sort({ createdAt: -1 })
-      .populate("createdBy members", "name email role");
+      .populate("createdBy members.user", "name email role");
     res.json({ projects });
   } catch (err) {
     next(err);
@@ -56,12 +56,12 @@ export async function getProject(req, res, next) {
     if (!mongoose.isValidObjectId(id)) {
       return res.status(400).json({ message: "Invalid project id" });
     }
-    const project = await Project.findById(id).populate("createdBy members", "name email role");
+    const project = await Project.findById(id).populate("createdBy members.user", "name email role");
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
     const isAdminOwner = req.user.role === "admin" && project.createdBy._id.toString() === req.user._id.toString();
-    const isMember = project.members.some((m) => m._id.toString() === req.user._id.toString());
+    const isMember = project.members.some((m) => m.user && m.user._id.toString() === req.user._id.toString());
     if (!isAdminOwner && !isMember) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -107,7 +107,7 @@ export async function updateProject(req, res, next) {
       project.comment = String(comment);
     }
     await project.save();
-    await project.populate("createdBy members", "name email role");
+    await project.populate("createdBy members.user", "name email role");
     res.json({ project });
   } catch (err) {
     next(err);
@@ -149,7 +149,7 @@ export async function manageMembers(req, res, next) {
     if (project.createdBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Access denied" });
     }
-    const { userId, email, action } = req.body;
+    const { userId, email, action, projectRole } = req.body;
     let targetId = userId;
     if (!targetId && email) {
       const u = await User.findOne({ email: String(email).trim().toLowerCase() });
@@ -161,25 +161,32 @@ export async function manageMembers(req, res, next) {
     if (!targetId || !mongoose.isValidObjectId(targetId)) {
       return res.status(400).json({ message: "userId or email and action are required" });
     }
-    if (action !== "add" && action !== "remove") {
-      return res.status(400).json({ message: "action must be 'add' or 'remove'" });
+    if (action !== "add" && action !== "remove" && action !== "updateRole") {
+      return res.status(400).json({ message: "action must be 'add', 'remove', or 'updateRole'" });
     }
     const oid = new mongoose.Types.ObjectId(targetId);
     if (action === "add") {
-      if (!project.members.some((m) => m.toString() === oid.toString())) {
-        project.members.push(oid);
+      if (!project.members.some((m) => m.user.toString() === oid.toString())) {
+        project.members.push({ user: oid, projectRole: projectRole || "Tasker" });
+      }
+    } else if (action === "updateRole") {
+      const member = project.members.find((m) => m.user.toString() === oid.toString());
+      if (member) {
+        member.projectRole = projectRole || "Tasker";
+      } else {
+        return res.status(404).json({ message: "User is not a member of this project" });
       }
     } else {
       if (oid.toString() === project.createdBy.toString()) {
         return res.status(400).json({ message: "Cannot remove project creator from members" });
       }
-      project.members = project.members.filter((m) => m.toString() !== oid.toString());
+      project.members = project.members.filter((m) => m.user.toString() !== oid.toString());
     }
     await project.save();
-    await project.populate("createdBy members", "name email role");
+    await project.populate("createdBy members.user", "name email role");
 
     const targetUser = await User.findById(targetId);
-    if (targetUser) {
+    if (targetUser && action !== "updateRole") {
       sendAssignmentEmail(targetUser.email, targetUser.name, project.projectName, action);
     }
 

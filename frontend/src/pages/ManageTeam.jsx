@@ -7,6 +7,7 @@ export default function ManageTeam() {
   const [project, setProject] = useState(null);
   const [email, setEmail] = useState("");
   const [action, setAction] = useState("add");
+  const [projectRole, setProjectRole] = useState("Tasker");
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
@@ -40,6 +41,7 @@ export default function ManageTeam() {
       await api.post(`/api/projects/${projectId}/members`, {
         email: email.trim(),
         action,
+        projectRole,
       });
       setEmail("");
       setMsg(action === "add" ? "Member added." : "Member removed.");
@@ -92,6 +94,20 @@ export default function ManageTeam() {
             <option value="remove">Remove member</option>
           </select>
         </div>
+        {action === "add" && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Project Role</label>
+            <select
+              value={projectRole}
+              onChange={(e) => setProjectRole(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+            >
+              <option value="Tasker">Tasker</option>
+              <option value="PL">PL</option>
+              <option value="QR">QR</option>
+            </select>
+          </div>
+        )}
         <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700">
           Apply
         </button>
@@ -100,11 +116,15 @@ export default function ManageTeam() {
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Current members</h2>
         <ul className="mt-4 divide-y divide-slate-100">
-          {(project.members || []).map((m) => (
-            <li key={m._id || m.id} className="py-2 text-slate-800">
-              {m.name} <span className="text-slate-500">({m.email})</span> — {m.role}
-            </li>
-          ))}
+          {(project.members || []).map((m) => {
+            const u = m.user || {};
+            return (
+              <li key={u._id || u.id} className="py-2 text-slate-800">
+                {u.name} <span className="text-slate-500">({u.email})</span> —{" "}
+                <span className="font-bold text-indigo-600">{m.projectRole || "Tasker"}</span>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>

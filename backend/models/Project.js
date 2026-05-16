@@ -12,7 +12,12 @@ const projectSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    members: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        projectRole: { type: String, enum: ["QR", "PL", "Tasker"], default: "Tasker" },
+      },
+    ],
   },
   { timestamps: { createdAt: "createdAt", updatedAt: false } }
 );
