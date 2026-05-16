@@ -24,7 +24,7 @@ export async function createProject(req, res, next) {
       description: description != null ? String(description) : "",
       documentUrl: documentUrl != null ? String(documentUrl).trim() : "",
       createdBy: req.user._id,
-      members: [{ user: req.user._id, projectRole: "PL" }],
+      members: [],
     });
     await project.populate("createdBy members.user", "name email role");
     res.status(201).json({ project });

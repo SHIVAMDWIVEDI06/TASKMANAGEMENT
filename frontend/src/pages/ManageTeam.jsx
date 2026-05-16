@@ -11,10 +11,16 @@ export default function ManageTeam() {
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
+  const [allTaskers, setAllTaskers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
 
   async function load() {
-    const { data } = await api.get(`/api/projects/${projectId}`);
-    setProject(data.project);
+    const [{ data: pData }, { data: tData }] = await Promise.all([
+      api.get(`/api/projects/${projectId}`),
+      api.get("/api/dashboard/taskers")
+    ]);
+    setProject(pData.project);
+    setAllTaskers(tData.taskers || []);
   }
 
   useEffect(() => {
@@ -39,10 +45,11 @@ export default function ManageTeam() {
     setMsg("");
     try {
       await api.post(`/api/projects/${projectId}/members`, {
-        email: email.trim(),
+        userId: selectedUserId,
         action,
         projectRole,
       });
+      setSelectedUserId("");
       setEmail("");
       setMsg(action === "add" ? "Member added." : "Member removed.");
       await load();
@@ -73,16 +80,42 @@ export default function ManageTeam() {
         {msg && (
           <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{msg}</div>
         )}
-        <div>
-          <label className="block text-sm font-medium text-slate-700">Member email</label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-          />
-        </div>
+        {action === "add" && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Select Member</label>
+            <select
+              required
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">-- Choose a registered member --</option>
+              {allTaskers.map((t) => (
+                <option key={t.user.id} value={t.user.id}>
+                  {t.user.name} ({t.user.email})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {action === "remove" && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Remove Member</label>
+            <select
+              required
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">-- Choose member to remove --</option>
+              {(project.members || []).map((m) => (
+                <option key={m.user._id || m.user.id} value={m.user._id || m.user.id}>
+                  {m.user.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-slate-700">Action</label>
           <select
