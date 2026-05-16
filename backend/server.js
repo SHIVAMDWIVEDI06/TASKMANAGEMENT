@@ -34,7 +34,10 @@ app.use(
     credentials: true,
   })
 );
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false,
+}));
+console.log("Unified Backend Version 2.0.0 Online");
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => {

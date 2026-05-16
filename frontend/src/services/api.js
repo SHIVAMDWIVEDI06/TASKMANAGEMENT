@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const baseURL = import.meta.env.VITE_API_URL || "";
+console.log("--- SYSTEM UNIFIED VERSION 2.0.0 ---");
 
 export const api = axios.create({
   baseURL,
