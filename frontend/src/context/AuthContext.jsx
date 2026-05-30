@@ -1,89 +1,70 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api, getStoredToken, setAuthToken, storeToken } from "../services/api.js";
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
 
-const AuthContext = createContext(null);
+const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setTokenState] = useState(() => getStoredToken());
   const [loading, setLoading] = useState(true);
 
-  const applyToken = useCallback((t) => {
-    setTokenState(t);
-    storeToken(t);
-    setAuthToken(t);
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Decode or verify token logic here
+      // For now, we'll just mock the user fetch if token exists
+      // In real app: axios.get(`${API_BASE_URL}/auth/me`)
+      try {
+        const savedUser = JSON.parse(localStorage.getItem('user'));
+        if (savedUser) setUser(savedUser);
+      } catch (e) {
+        console.error('Failed to parse user from localStorage', e);
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
+    }
+    setLoading(false);
   }, []);
 
-  useEffect(() => {
-    setAuthToken(token || null);
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      return;
+  const login = async (email, password) => {
+    try {
+      const res = await axios.post(`${API_BASE_URL}/auth/login`, { email, password });
+      const { token, user } = res.data;
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.response?.data?.error || 'Login failed' };
     }
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await api.get("/api/auth/me");
-        if (!cancelled) setUser(data.user);
-      } catch (err) {
-        console.warn("[Auth] Token validation failed:", err.response?.data?.message || err.message);
-        if (!cancelled) {
-          applyToken(null);
-          setUser(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [token, applyToken]);
+  };
 
-  const login = useCallback(
-    async (email, password) => {
-      const { data } = await api.post("/api/auth/login", { email, password });
-      applyToken(data.token);
-      setUser(data.user);
-      return data.user;
-    },
-    [applyToken]
-  );
+  const signup = async (username, email, password, role) => {
+    try {
+      const res = await axios.post(`${API_BASE_URL}/auth/signup`, { username, email, password, role });
+      const { token, user } = res.data;
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.response?.data?.error || 'Signup failed' };
+    }
+  };
 
-  const signup = useCallback(
-    async (payload) => {
-      const { data } = await api.post("/api/auth/signup", payload);
-      applyToken(data.token);
-      setUser(data.user);
-      return data.user;
-    },
-    [applyToken]
-  );
-
-  const logout = useCallback(() => {
-    applyToken(null);
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
-  }, [applyToken]);
+  };
 
-  const value = useMemo(
-    () => ({
-      user,
-      token,
-      loading,
-      login,
-      signup,
-      logout,
-      isAdmin: user?.role === "admin",
-    }),
-    [user, token, loading, login, signup, logout]
+  return (
+    <AuthContext.Provider value={{ user, setUser, login, signup, logout, loading, isAdmin: user?.role === 'Admin' }}>
+      {children}
+    </AuthContext.Provider>
   );
+};
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
-}
+export const useAuth = () => useContext(AuthContext);

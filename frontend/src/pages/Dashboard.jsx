@@ -1,560 +1,441 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { api } from "../services/api.js";
-import { useAuth } from "../context/AuthContext.jsx";
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  Avatar,
+  Box,
+  Button,
+  Chip,
+  FormControl,
+  LinearProgress,
+  MenuItem,
+  Paper,
+  Select,
+  Skeleton,
+  Typography,
+} from '@mui/material';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock3,
+  FolderKanban,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
+import axios from 'axios';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { API_BASE_URL } from '../config';
+import PremiumIcon from '../components/PremiumIcon';
 
-function StatCard({ label, value, tone }) {
-  const tones = {
-    slate: "border-slate-200 bg-white",
-    green: "border-emerald-200 bg-emerald-50",
-    amber: "border-amber-200 bg-amber-50",
-    red: "border-red-200 bg-red-50",
-    indigo: "border-indigo-200 bg-indigo-50",
-  };
-  return (
-    <div className={`rounded-xl border p-4 shadow-sm ${tones[tone] || tones.slate}`}>
-      <p className="text-sm font-medium text-slate-600">{label}</p>
-      <p className="mt-1 text-3xl font-bold text-slate-900">{value}</p>
-    </div>
-  );
-}
-
-const emptyAssignForm = {
-  title: "",
-  description: "",
-  dueDate: "",
-  priority: "Medium",
-  status: "Pending",
-  assignedTo: "",
-};
+const StatCard = ({ title, value, helper, icon, tone, loading }) => (
+  <Paper className="glass-panel hover-lift premium-shadow" sx={{ p: 2.75, height: '100%', borderRadius: '16px' }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
+      <Box>
+        <Typography sx={{ color: 'var(--text-secondary)', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase' }}>
+          {title}
+        </Typography>
+        <Typography variant="h4" sx={{ color: 'var(--text-primary)', fontWeight: 900, mt: 0.75 }}>
+          {loading ? <Skeleton width={72} /> : value}
+        </Typography>
+      </Box>
+      <PremiumIcon tone={tone} size={60} radius="50%">
+        {icon}
+      </PremiumIcon>
+    </Box>
+    <Typography sx={{ color: 'var(--text-tertiary)', fontWeight: 600, mt: 2 }}>
+      <Box component="span" sx={{ color: helper?.startsWith('-') ? '#f43f5e' : '#22c98a', fontWeight: 900 }}>
+        {helper?.split(' ')[0]}
+      </Box>{' '}
+      {helper?.split(' ').slice(1).join(' ')}
+    </Typography>
+  </Paper>
+);
 
 export default function Dashboard() {
-  const { user, isAdmin } = useAuth();
-  const [summary, setSummary] = useState(null);
+  const [data, setData] = useState(null);
   const [projects, setProjects] = useState([]);
-  const [error, setError] = useState("");
-
-  const [assignProjectId, setAssignProjectId] = useState("");
-  const [assignForm, setAssignForm] = useState(emptyAssignForm);
-  const [assignError, setAssignError] = useState("");
-  const [assignSuccess, setAssignSuccess] = useState("");
-  const [assignSubmitting, setAssignSubmitting] = useState(false);
-  const [memberSearch, setMemberSearch] = useState("");
-
-  const [allUsers, setAllUsers] = useState([]);
-  const [teamForm, setTeamForm] = useState({ projectId: "", userId: "", role: "Tasker" });
-  const [teamError, setTeamError] = useState("");
-  const [teamSuccess, setTeamSuccess] = useState("");
-  const [teamSubmitting, setTeamSubmitting] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
+    const fetchInitialData = async () => {
       try {
-        const reqs = [
-          api.get("/api/dashboard/summary"),
-          api.get("/api/projects"),
-        ];
-        if (isAdmin) reqs.push(api.get("/api/dashboard/taskers"));
-        const results = await Promise.allSettled(reqs);
-        if (cancelled) return;
-        if (results[0].status === "fulfilled") {
-          setSummary(results[0].value.data.summary);
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${API_BASE_URL}/projects`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setProjects(res.data);
+        if (res.data.length > 0) {
+          setSelectedProjectId(res.data[0].id);
+        } else {
+          setLoading(false);
         }
-        if (results[1].status === "fulfilled") {
-          setProjects(results[1].value.data.projects || []);
-        }
-        if (results[2] && results[2].status === "fulfilled") {
-          setAllUsers(results[2].value.data.taskers || []);
-        }
-        if (results.every((r) => r.status === "rejected")) {
-          setError("Failed to load dashboard data");
-        }
-      } catch (e) {
-        if (!cancelled) setError("Failed to load dashboard");
+      } catch (err) {
+        setLoading(false);
       }
-    })();
-    return () => {
-      cancelled = true;
     };
-  }, [isAdmin]);
-
-  const assignMembers = (() => {
-    if (!assignProjectId) return [];
-    const p = projects.find((x) => (x._id || x.id) === assignProjectId);
-    const members = p?.members || [];
-    if (!memberSearch.trim()) return members;
-    return members.filter((m) => {
-      const u = m.user || {};
-      const name = (u.name || "").toLowerCase();
-      const email = (u.email || "").toLowerCase();
-      const s = memberSearch.toLowerCase();
-      return name.includes(s) || email.includes(s);
-    });
-  })();
+    fetchInitialData();
+  }, []);
 
   useEffect(() => {
-    if (!assignProjectId) {
-      setAssignForm((f) => ({ ...f, assignedTo: "" }));
-      return;
-    }
-    const p = projects.find((x) => (x._id || x.id) === assignProjectId);
-    const members = p?.members || [];
-    if (!members.length) {
-      setAssignForm((f) => ({ ...f, assignedTo: "" }));
-      return;
-    }
-    const first = members[0]?.user?._id || members[0]?.user?.id || (typeof members[0] === "string" ? members[0] : "");
-    setAssignForm((f) => {
-      const stillValid = members.some((m) => {
-        const uid = m.user?._id || m.user?.id || (typeof m === "string" ? m : "");
-        return uid === f.assignedTo;
-      });
-      return { ...f, assignedTo: stillValid ? f.assignedTo : (first || f.assignedTo) };
-    });
-  }, [assignProjectId, projects]);
+    if (!selectedProjectId) return;
 
-  async function handleAssignSubmit(e) {
-    e.preventDefault();
-    setAssignError("");
-    setAssignSuccess("");
-    if (!assignProjectId) {
-      setAssignError("Choose a project first.");
-      return;
-    }
-    if (!assignForm.title.trim()) {
-      setAssignError("Task title is required.");
-      return;
-    }
-    if (!assignForm.dueDate) {
-      setAssignError("Due date is required.");
-      return;
-    }
-    if (!assignForm.assignedTo) {
-      setAssignError("Choose who to assign the task to.");
-      return;
-    }
-    setAssignSubmitting(true);
-    try {
-      await api.post("/api/tasks", {
-        title: assignForm.title.trim(),
-        description: assignForm.description,
-        projectId: assignProjectId,
-        assignedTo: assignForm.assignedTo,
-        priority: assignForm.priority,
-        status: assignForm.status,
-        dueDate: new Date(assignForm.dueDate).toISOString(),
-      });
-      setAssignSuccess("Task created.");
-      setAssignForm({ ...emptyAssignForm, assignedTo: assignForm.assignedTo });
+    const fetchDashboardData = async () => {
+      setLoading(true);
       try {
-        const dash = await api.get("/api/dashboard/summary");
-        setSummary(dash.data.summary);
-      } catch {}
-    } catch (err) {
-      setAssignError(err.response?.data?.message || "Could not create task");
-    } finally {
-      setAssignSubmitting(false);
-    }
-  }
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${API_BASE_URL}/dashboard/${selectedProjectId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setData(res.data);
+      } catch (err) {
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  async function handleTeamSubmit(e) {
-    e.preventDefault();
-    setTeamError("");
-    setTeamSuccess("");
-    if (!teamForm.projectId || !teamForm.userId) {
-      setTeamError("Please select both a project and a member.");
-      return;
-    }
-    setTeamSubmitting(true);
-    try {
-      const { data } = await api.post(`/api/projects/${teamForm.projectId}/members`, {
-        userId: teamForm.userId,
-        action: "add",
-        projectRole: teamForm.role,
-      });
-      setTeamSuccess("Member added successfully!");
-      setTeamForm({ ...teamForm, userId: "" });
-      // Refresh projects to reflect new member lists
-      const pRes = await api.get("/api/projects");
-      setProjects(pRes.data.projects || []);
-    } catch (err) {
-      setTeamError(err.response?.data?.message || "Failed to add member.");
-    } finally {
-      setTeamSubmitting(false);
-    }
-  }
+    fetchDashboardData();
+  }, [selectedProjectId]);
 
-  async function handleUpdateProject(projectId, updates) {
-    try {
-      const { data } = await api.put(`/api/projects/${projectId}`, updates);
-      setProjects((prev) =>
-        prev.map((p) => ((p._id || p.id) === projectId ? data.project : p))
-      );
-    } catch (err) {
-      setError("Failed to update project.");
-    }
-  }
+  const completion = data?.completionRate || {};
+  const totalTasks = Number(completion.totalTasks) || 0;
+  const doneTasks = Number(completion.doneTasks) || 0;
+  const todoTasks = Number(completion.todoTasks) || 0;
+  const inProgressTasks = Number(completion.inprogressTasks) || 0;
+  const efficiency = Number(completion.percentage) || 0;
+  const activeRisks = data?.overdueHighPriority?.length || 0;
 
-  const s = summary || {};
-  const maxBar = Math.max(s.totalTasks || 0, 1);
+  const distribution = [
+    { name: 'To Do', value: todoTasks, color: '#8795ad' },
+    { name: 'In Progress', value: inProgressTasks, color: '#ff8a4c' },
+    { name: 'Done', value: doneTasks, color: '#22c98a' },
+  ].filter((item) => item.value > 0);
+
+  const chartData = useMemo(() => {
+    const total = Math.max(totalTasks, 1);
+    return [
+      { label: 'To Do', tasks: todoTasks },
+      { label: 'Active', tasks: inProgressTasks },
+      { label: 'Done', tasks: doneTasks },
+      { label: 'Health', tasks: Math.round((efficiency / 100) * total) },
+    ];
+  }, [doneTasks, efficiency, inProgressTasks, todoTasks, totalTasks]);
+
+  const safeDistribution = distribution.length
+    ? distribution
+    : [{ name: 'No tasks', value: 1, color: '#eef2f7' }];
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">
-          Welcome{user?.name ? `, ${user.name}` : ""}
-        </h1>
-        <p className="text-slate-600">
-          {isAdmin ? "Manage projects, members, and tasks from here." : "Track your assigned work."}
-        </p>
-      </div>
-
-      {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-          {error}
-        </div>
-      )}
-
-      {summary && (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Total projects" value={s.totalProjects} tone="slate" />
-            <StatCard label="Completed projects" value={s.completedProjects} tone="green" />
-            <StatCard label="Total tasks" value={s.totalTasks} tone="indigo" />
-            <StatCard label="Pending tasks" value={s.pendingTasks} tone="amber" />
-          </div>
-          {s.overdueTaskList?.length > 0 && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-red-900">Overdue tasks</h2>
-              <p className="mt-1 text-sm text-red-700">{s.overdueTasks} tasks past due date</p>
-              <ul className="mt-3 space-y-2">
-                {s.overdueTaskList.map((t) => (
-                  <li key={t._id || t.id}>
-                    <Link
-                      to={`/tasks/${t._id || t.id}`}
-                      className="flex items-center justify-between rounded-md bg-white px-3 py-2 text-sm shadow-sm hover:underline"
-                    >
-                      <span className="font-medium text-slate-900">{t.title}</span>
-                      <span className="text-slate-600">
-                        {t.assignedTo?.name} &middot; {new Date(t.dueDate).toLocaleDateString()}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Task mix</h2>
-            <p className="text-sm text-slate-500">Relative counts (not to scale if total is 0)</p>
-            <div className="mt-4 space-y-3">
-              {[
-                ["Completed", s.completedTasks, "bg-emerald-500"],
-                ["Pending", s.pendingTasks, "bg-amber-500"],
-                ["In progress", s.inProgressTasks, "bg-indigo-500"],
-                ["Overdue", s.overdueTasks, "bg-red-500"],
-              ].map(([label, val, color]) => (
-                <div key={label}>
-                  <div className="mb-1 flex justify-between text-sm">
-                    <span className="text-slate-600">{label}</span>
-                    <span className="font-medium text-slate-900">{val}</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={`h-full rounded-full ${color}`}
-                      style={{ width: `${Math.min(100, ((val || 0) / maxBar) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {isAdmin && (
-        <>
-          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Assign task</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Pick a project, then add a new task and choose who it is assigned to (must be a project member).
-            </p>
-            <div className="mt-4 space-y-4">
-              <div>
-                <label htmlFor="assign-project" className="block text-sm font-medium text-slate-700">
-                  Project
-                </label>
-                <select
-                  id="assign-project"
-                  value={assignProjectId}
-                  onChange={(e) => {
-                    setAssignProjectId(e.target.value);
-                    setAssignSuccess("");
-                    setAssignError("");
-                  }}
-                  className="mt-1 w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  <option value="">Select a project…</option>
-                  {projects.map((p) => {
-                    const pid = p._id || p.id;
-                    return (
-                      <option key={pid} value={pid}>
-                        {p.projectName}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              {assignProjectId && (
-                <form onSubmit={handleAssignSubmit} className="max-w-xl space-y-4 border-t border-slate-100 pt-4">
-                  {assignError && (
-                    <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{assignError}</div>
-                  )}
-                  {assignSuccess && (
-                    <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{assignSuccess}</div>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Task title *</label>
-                    <input
-                      required
-                      value={assignForm.title}
-                      onChange={(e) => setAssignForm((f) => ({ ...f, title: e.target.value }))}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Description</label>
-                    <textarea
-                      rows={3}
-                      value={assignForm.description}
-                      onChange={(e) => setAssignForm((f) => ({ ...f, description: e.target.value }))}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    />
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-slate-700">Assign to *</label>
-                      <input
-                        type="text"
-                        placeholder="Search team members..."
-                        value={memberSearch}
-                        onChange={(e) => setMemberSearch(e.target.value)}
-                        className="w-full rounded-lg border border-slate-300 px-3 py-1 text-xs"
-                      />
-                      <select
-                        required
-                        value={assignForm.assignedTo}
-                        onChange={(e) => setAssignForm((f) => ({ ...f, assignedTo: e.target.value }))}
-                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                      >
-                        <option value="">-- Select member --</option>
-                        {assignMembers.map((m) => {
-                          const u = m.user || {};
-                          const uid = u._id || u.id || (typeof m === "string" ? m : "");
-                          if (!uid) return null;
-                          return (
-                            <option key={uid} value={uid}>
-                              {u.name || "Unknown"} ({u.email || "No email"}) — {m.projectRole || "Tasker"}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Due date *</label>
-                      <input
-                        type="datetime-local"
-                        required
-                        value={assignForm.dueDate}
-                        onChange={(e) => setAssignForm((f) => ({ ...f, dueDate: e.target.value }))}
-                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Priority</label>
-                      <select
-                        value={assignForm.priority}
-                        onChange={(e) => setAssignForm((f) => ({ ...f, priority: e.target.value }))}
-                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                      >
-                        <option>Low</option>
-                        <option>Medium</option>
-                        <option>High</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Initial status</label>
-                      <select
-                        value={assignForm.status}
-                        onChange={(e) => setAssignForm((f) => ({ ...f, status: e.target.value }))}
-                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                      >
-                        <option>Pending</option>
-                        <option>In Progress</option>
-                        <option>Completed</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="submit"
-                      disabled={assignSubmitting}
-                      className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
-                    >
-                      {assignSubmitting ? "Creating…" : "Create & assign task"}
-                    </button>
-                    <Link
-                      to={`/projects/${assignProjectId}`}
-                      className="inline-flex items-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      Open project
-                    </Link>
-                  </div>
-                </form>
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Add member to project</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Select a project and a user to add them to the team with a specific role.
-            </p>
-            <form onSubmit={handleTeamSubmit} className="mt-4 space-y-4 max-w-xl">
-              {teamError && (
-                <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{teamError}</div>
-              )}
-              {teamSuccess && (
-                <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{teamSuccess}</div>
-              )}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">Project</label>
-                  <select
-                    required
-                    value={teamForm.projectId}
-                    onChange={(e) => setTeamForm({ ...teamForm, projectId: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  >
-                    <option value="">Select project...</option>
-                    {projects.map((p) => (
-                      <option key={p._id || p.id} value={p._id || p.id}>
-                        {p.projectName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">Member</label>
-                  <select
-                    required
-                    value={teamForm.userId}
-                    onChange={(e) => setTeamForm({ ...teamForm, userId: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  >
-                    <option value="">Select member...</option>
-                    {allUsers.map((t) => (
-                      <option key={t.user.id} value={t.user.id}>
-                        {t.user.name} ({t.user.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Project Role</label>
-                <select
-                  value={teamForm.role}
-                  onChange={(e) => setTeamForm({ ...teamForm, role: e.target.value })}
-                  className="mt-1 w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                >
-                  <option value="Tasker">Tasker</option>
-                  <option value="PL">PL</option>
-                  <option value="QR">QR</option>
-                </select>
-              </div>
-              <button
-                type="submit"
-                disabled={teamSubmitting}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
-              >
-                {teamSubmitting ? "Adding..." : "Add to Team"}
-              </button>
-            </form>
-          </section>
-
-        </>
-      )}
-
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <h2 className="text-lg font-semibold text-slate-900">Projects</h2>
-          {isAdmin && (
-            <Link
-              to="/projects/create"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-            >
-              New project
-            </Link>
-          )}
-        </div>
-        {projects.length === 0 ? (
-          <p className="mt-4 text-slate-600">
-            {isAdmin ? "Create your first project to get started." : "No projects yet. Ask an admin to add you."}
-          </p>
-        ) : (
-          <ul className="mt-4 divide-y divide-slate-100">
-            {projects.map((p) => (
-              <li key={p._id || p.id} className="flex flex-col gap-2 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Link to={`/projects/${p._id || p.id}`} className="font-medium text-indigo-700 hover:underline flex items-center gap-2">
-                    {p.projectName}
-                    {p.status === "Completed" && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                        Completed
-                      </span>
-                    )}
-                  </Link>
-                  <span className="text-sm text-slate-500">
-                    {(p.members && p.members.length) || 0} members
-                  </span>
-                </div>
-                {p.comment && (
-                  <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded border border-slate-100">
-                    <span className="font-medium text-slate-700 text-xs uppercase mr-2">Note:</span>
-                    {p.comment}
-                  </p>
-                )}
-                {isAdmin && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <button 
-                      onClick={() => handleUpdateProject(p._id || p.id, { status: p.status === "Completed" ? "Active" : "Completed" })}
-                      className="text-xs px-2 py-1 rounded bg-slate-100 border border-slate-200 hover:bg-slate-200"
-                    >
-                      Mark as {p.status === "Completed" ? "Active" : "Completed"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        const newComment = prompt("Add comment for project:", p.comment || "");
-                        if (newComment !== null) {
-                          handleUpdateProject(p._id || p.id, { comment: newComment });
-                        }
-                      }}
-                      className="text-xs px-2 py-1 rounded bg-slate-100 border border-slate-200 hover:bg-slate-200"
-                    >
-                      {p.comment ? "Edit Comment" : "Add Comment"}
-                    </button>
-                  </div>
-                )}
-              </li>
+    <Box sx={{ pb: 4 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: { xs: 'stretch', md: 'center' },
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 2,
+          mb: 3.5,
+        }}
+      >
+        <Box>
+          <Typography sx={{ color: '#fff', opacity: 0.86, fontWeight: 700 }}>
+            Live task analytics for your selected project
+          </Typography>
+        </Box>
+        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 260 } }}>
+          <Select
+            value={selectedProjectId}
+            onChange={(e) => setSelectedProjectId(e.target.value)}
+            displayEmpty
+            sx={{
+              bgcolor: '#fff',
+              borderRadius: '8px',
+              boxShadow: '0 12px 24px rgba(47, 67, 103, 0.12)',
+              fontWeight: 800,
+            }}
+          >
+            <MenuItem value="" disabled>
+              Select a project
+            </MenuItem>
+            {projects.map((project) => (
+              <MenuItem key={project.id} value={project.id}>
+                {project.name}
+              </MenuItem>
             ))}
-          </ul>
-        )}
-      </div>
-    </div>
+          </Select>
+        </FormControl>
+      </Box>
+
+      {projects.length === 0 && !loading ? (
+        <Alert severity="info" sx={{ borderRadius: '8px', mb: 3 }}>
+          Create a project first to see dashboard analytics.
+        </Alert>
+      ) : null}
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, minmax(0, 1fr))',
+            lg: 'repeat(4, minmax(0, 1fr))',
+          },
+          gap: 3,
+          mb: 3,
+        }}
+      >
+        <StatCard
+          title="Total Tasks"
+          value={totalTasks}
+          helper={`${data?.trends?.taskTrend >= 0 ? '+' : ''}${data?.trends?.taskTrend || 0}% vs last week`}
+          icon={<Clock3 size={25} />}
+          tone="coral"
+          loading={loading}
+        />
+        <StatCard
+          title="Completed"
+          value={doneTasks}
+          helper={`${data?.trends?.doneTrend >= 0 ? '+' : ''}${data?.trends?.doneTrend || 0}% vs last week`}
+          icon={<CheckCircle2 size={25} />}
+          tone="green"
+          loading={loading}
+        />
+        <StatCard
+          title="Active Risks"
+          value={activeRisks}
+          helper={activeRisks ? '-Needs attention' : '+No overdue risks'}
+          icon={<AlertCircle size={25} />}
+          tone="rose"
+          loading={loading}
+        />
+        <StatCard
+          title="Efficiency"
+          value={`${efficiency}%`}
+          helper="+Based on done tasks"
+          icon={<TrendingUp size={25} />}
+          tone="amber"
+          loading={loading}
+        />
+      </Box>
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1.05fr' }, gap: 3 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Paper className="glass-panel premium-shadow" sx={{ p: 3, height: 430, borderRadius: '16px' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Box>
+                <Typography variant="h6" sx={{ color: 'var(--text-primary)' }}>
+                  Task Flow Overview
+                </Typography>
+                <Typography sx={{ color: '#70809d', fontWeight: 700, fontSize: '0.92rem' }}>
+                  {efficiency}% of tasks have reached done
+                </Typography>
+              </Box>
+              <Chip label="Project health" sx={{ bgcolor: '#fff2e3', color: '#fb5b3f', fontWeight: 800 }} />
+            </Box>
+            <Box sx={{ height: 310 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 15, right: 18, left: -18, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="taskGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#fb5b3f" stopOpacity={0.32} />
+                      <stop offset="95%" stopColor="#fb5b3f" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="6 8" vertical={false} stroke="#e8edf5" />
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#a0abc0', fontSize: 12 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#a0abc0', fontSize: 12 }} />
+                  <Tooltip />
+                  <Area
+                    type="monotone"
+                    dataKey="tasks"
+                    stroke="#fb5b3f"
+                    strokeWidth={4}
+                    fill="url(#taskGradient)"
+                    dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: '#fb5b3f' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </Box>
+          </Paper>
+        </Box>
+
+        <Box sx={{ minWidth: 0 }}>
+          <Paper
+            className="hover-lift premium-shadow"
+            sx={{
+              height: 430,
+              p: 3,
+              color: '#fff',
+              bgcolor: '#835f51',
+              background:
+                'linear-gradient(135deg, rgba(131,95,81,0.96), rgba(111,81,72,0.94)), radial-gradient(circle at 75% 35%, rgba(255,255,255,0.28), transparent 26%)',
+              overflow: 'hidden',
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box sx={{ width: 42, height: 42, borderRadius: '8px', bgcolor: '#fff', color: '#2f4367', display: 'grid', placeItems: 'center' }}>
+                <FolderKanban size={20} />
+              </Box>
+              <Chip label={`${efficiency}% healthy`} sx={{ bgcolor: 'rgba(255,255,255,0.16)', color: '#fff', fontWeight: 800 }} />
+            </Box>
+            <Box sx={{ height: 210, display: 'grid', placeItems: 'center' }}>
+              <Box sx={{ position: 'relative', width: 165, height: 165 }}>
+                <svg width="165" height="165">
+                  <circle cx="82.5" cy="82.5" r="68" fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="15" />
+                  <circle
+                    cx="82.5"
+                    cy="82.5"
+                    r="68"
+                    fill="none"
+                    stroke="#fff"
+                    strokeWidth="15"
+                    strokeDasharray="427"
+                    strokeDashoffset={427 - (427 * efficiency) / 100}
+                    strokeLinecap="round"
+                    transform="rotate(-90 82.5 82.5)"
+                  />
+                </svg>
+                <Typography variant="h3" sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#fff' }}>
+                  {efficiency}%
+                </Typography>
+              </Box>
+            </Box>
+            <Typography variant="h5" sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
+              Faster way to finish project work
+            </Typography>
+            <Typography sx={{ color: 'rgba(255,255,255,0.86)', lineHeight: 1.8, fontWeight: 600 }}>
+              Track completion, workload, and overdue high-priority tasks from one focused dashboard.
+            </Typography>
+          </Paper>
+        </Box>
+      </Box>
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' }, gap: 3, mt: 3 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Paper className="glass-panel premium-shadow" sx={{ p: 3, minHeight: 330, borderRadius: '16px' }}>
+            <Typography variant="h6" sx={{ color: 'var(--text-primary)', mb: 3 }}>
+              Task Distribution
+            </Typography>
+            <Box sx={{ height: 205, position: 'relative' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={safeDistribution} dataKey="value" innerRadius={64} outerRadius={90} stroke="none">
+                    {safeDistribution.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" sx={{ color: '#2f4367', fontWeight: 900 }}>{totalTasks}</Typography>
+                  <Typography sx={{ color: '#a0abc0', fontWeight: 900, fontSize: '0.72rem' }}>TOTAL</Typography>
+                </Box>
+              </Box>
+            </Box>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.2, justifyContent: 'center', mt: 1 }}>
+              {distribution.map((item) => (
+                <Chip
+                  key={item.name}
+                  size="small"
+                  label={`${item.name}: ${item.value}`}
+                  sx={{ bgcolor: `${item.color}18`, color: item.color, fontWeight: 800 }}
+                />
+              ))}
+            </Box>
+          </Paper>
+        </Box>
+
+        <Box sx={{ minWidth: 0 }}>
+          <Paper className="glass-panel premium-shadow hover-lift" sx={{ p: 3, minHeight: 330, borderRadius: '16px' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+              <Users size={21} color="#fb5b3f" />
+              <Typography variant="h6" sx={{ color: 'var(--text-primary)' }}>
+                Team Workload
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.4 }}>
+              {(data?.workloadAnalysis || []).slice(0, 5).map((member) => (
+                <Box key={member.user_id}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.8 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Avatar sx={{ width: 28, height: 28, bgcolor: '#fff2e3', color: '#fb5b3f', fontWeight: 900 }}>
+                        {member.username?.[0]?.toUpperCase()}
+                      </Avatar>
+                      <Typography sx={{ fontWeight: 800, color: '#2f4367' }}>{member.username}</Typography>
+                    </Box>
+                    <Typography sx={{ fontWeight: 900, color: '#70809d', fontSize: '0.82rem' }}>
+                      {member.in_progress_count} active
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={Math.min((Number(member.in_progress_count) / Math.max(inProgressTasks, 1)) * 100, 100)}
+                    sx={{
+                      height: 8,
+                      borderRadius: '8px',
+                      bgcolor: '#eef2f7',
+                      '& .MuiLinearProgress-bar': { bgcolor: '#fb5b3f', borderRadius: '8px' },
+                    }}
+                  />
+                </Box>
+              ))}
+              {!loading && (data?.workloadAnalysis || []).length === 0 && (
+                <Typography sx={{ color: '#70809d', fontWeight: 700 }}>No active workload yet.</Typography>
+              )}
+            </Box>
+          </Paper>
+        </Box>
+
+        <Box sx={{ minWidth: 0 }}>
+          <Paper className="glass-panel premium-shadow" sx={{ p: 3, minHeight: 330, borderRadius: '16px' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+              <AlertCircle size={21} color="#f43f5e" />
+              <Typography variant="h6" sx={{ color: 'var(--text-primary)' }}>
+                High Priority Alerts
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {(data?.overdueHighPriority || []).slice(0, 5).map((task) => (
+                <Box
+                  key={task.task_id}
+                  sx={{
+                    p: 1.7,
+                    borderRadius: '8px',
+                    bgcolor: '#fff7f8',
+                    border: '1px solid #ffe4ea',
+                  }}
+                >
+                  <Typography sx={{ fontWeight: 900, color: '#2f4367' }}>{task.title}</Typography>
+                  <Typography sx={{ color: '#70809d', fontWeight: 700, fontSize: '0.82rem' }}>
+                    Assigned to {task.assigned_to || 'Unassigned'}
+                  </Typography>
+                </Box>
+              ))}
+              {!loading && (data?.overdueHighPriority || []).length === 0 && (
+                <Box sx={{ p: 2, borderRadius: '8px', bgcolor: '#effaf5', border: '1px solid #dff8ee' }}>
+                  <Typography sx={{ color: '#159664', fontWeight: 900 }}>No overdue high-priority tasks.</Typography>
+                  <Typography sx={{ color: '#70809d', fontWeight: 700, fontSize: '0.86rem' }}>
+                    Your project is clear for now.
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Paper>
+        </Box>
+      </Box>
+    </Box>
   );
 }

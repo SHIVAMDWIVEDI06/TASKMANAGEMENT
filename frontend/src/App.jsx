@@ -1,47 +1,96 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext.jsx";
-import { PrivateRoute, AdminRoute } from "./components/ProtectedRoutes.jsx";
-import { AppLayout } from "./components/AppLayout.jsx";
-import Login from "./pages/Login.jsx";
-import Signup from "./pages/Signup.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
-import CreateProject from "./pages/CreateProject.jsx";
-import ProjectDetail from "./pages/ProjectDetail.jsx";
-import ManageTeam from "./pages/ManageTeam.jsx";
-import CreateTask from "./pages/CreateTask.jsx";
-import TaskList from "./pages/TaskList.jsx";
-import Taskers from "./pages/Taskers.jsx";
-import TaskDetail from "./pages/TaskDetail.jsx";
-import TaskStatusPage from "./pages/TaskStatusPage.jsx";
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import theme from './theme';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
+import { SearchProvider } from './context/SearchContext';
+import { FilterProvider } from './context/FilterContext';
+import { Toaster } from 'react-hot-toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
-export default function App() {
+// Layouts & Pages
+import MainLayout from './components/Layout/MainLayout';
+import Dashboard from './pages/Dashboard';
+import Projects from './pages/Projects';
+import ProjectDetail from './pages/ProjectDetail';
+import Login from './components/Login';
+import Signup from './components/Signup';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
+import Team from './pages/Team';
+import Profile from './pages/Profile';
+import Settings from './pages/Settings';
+
+import GlobalLoader from './components/GlobalLoader';
+
+// Protected Route Wrapper
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <GlobalLoader open={true} message="Authenticating..." />;
+  if (!user) return <Navigate to="/login" />;
+  return children;
+};
+
+function App() {
   return (
-    <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <AuthProvider>
+        <NotificationProvider>
+          <SearchProvider>
+            <FilterProvider>
+                <Toaster 
+                  position="top-right"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                    },
+                  }}
+                />
+                <Router>
+                  <Routes>
+                    {/* Public Routes */}
+                    <Route path="/login" element={<LoginWrapper />} />
+                    <Route path="/signup" element={<SignupWrapper />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-        <Route element={<PrivateRoute />}>
-          <Route path="/" element={<AppLayout />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="tasks" element={<TaskList />} />
-            <Route path="tasks/:id/status" element={<TaskStatusPage />} />
-            <Route path="tasks/:id" element={<TaskDetail />} />
+                    {/* Private Routes */}
+                    <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+                      <Route index element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+                      <Route path="projects" element={<ErrorBoundary><Projects /></ErrorBoundary>} />
+                      <Route path="projects/:projectId" element={<ErrorBoundary><ProjectDetail /></ErrorBoundary>} />
+                      <Route path="team" element={<ErrorBoundary><Team /></ErrorBoundary>} />
+                      <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
+                      <Route path="settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+                    </Route>
 
-            <Route element={<AdminRoute />}>
-              <Route path="projects/create" element={<CreateProject />} />
-              <Route path="projects/:projectId/team" element={<ManageTeam />} />
-              <Route path="projects/:projectId/tasks/new" element={<CreateTask />} />
-              <Route path="taskers" element={<Taskers />} />
-            </Route>
-
-            <Route path="projects/:id" element={<ProjectDetail />} />
-          </Route>
-        </Route>
-
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
-    </AuthProvider>
+                    {/* Fallback */}
+                    <Route path="*" element={<Navigate to="/" />} />
+                  </Routes>
+                </Router>
+            </FilterProvider>
+          </SearchProvider>
+        </NotificationProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
+
+// Wrappers to use useNavigate
+const LoginWrapper = () => {
+  const navigate = useNavigate();
+  return <Login onToggleMode={() => navigate('/signup')} />;
+};
+
+const SignupWrapper = () => {
+  const navigate = useNavigate();
+  return <Signup onToggleMode={() => navigate('/login')} />;
+};
+
+export default App;

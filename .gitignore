@@ -1,5 +1,17 @@
 node_modules/
 .env
-*.log
 dist/
+build/
 .DS_Store
+coverage/
+*.log
+
+# Laptop-specific backup files
+*-LAPTOP-*.js
+*-LAPTOP-*.jsx
+*-LAPTOP-*.json
+*-LAPTOP-*.md
+*-LAPTOP-*.html
+*-LAPTOP-*.css
+*-LAPTOP-*.env
+*-LAPTOP-*.svg
